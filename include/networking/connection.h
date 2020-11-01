@@ -28,6 +28,7 @@ namespace networking
         void send_message(const message_packet& message_to_send);
 
         std::string my_endpoint;
+        std::string service_name;
 
     protected:
         asio::io_context& _io_context;
@@ -108,7 +109,9 @@ namespace networking
                 {
                     if (length_read == sizeof(api::message_header))
                     {
-                        
+                        if (service_name.empty())
+                            service_name = _packet.header_.get_service_name_string();
+
                         _packet.endpoint_ = my_endpoint;
                         spdlog::debug("[connection] The length of the body is: {}", _packet.header_.message_length);
 

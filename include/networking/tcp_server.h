@@ -147,7 +147,7 @@ namespace networking
             }
             for (const auto& [connection, topics] : _connections)
             {
-                if (connection->my_endpoint != mp.endpoint_)
+                if (connection->my_endpoint != mp.endpoint_ || connection->service_name == mp.header_.get_service_name_string())
                 {
                     for (const auto& topic : topics)
                     {
