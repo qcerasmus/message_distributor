@@ -22,6 +22,10 @@ namespace networking
         ~connection();
 
         std::function<void()> message_received;
+        std::function<void(const std::string& endpoint)> client_disconnected;
+
+        void disconnect();
+        void send_message(const message_packet& message_to_send);
 
         std::string my_endpoint;
 
@@ -30,11 +34,13 @@ namespace networking
         asio::ip::tcp::socket _socket;
 
     private:
+        void write_body();
         void read_header();
         void read_body(std::uint64_t length_expected);
         std::shared_ptr<moodycamel::ConcurrentQueue<message_packet>> _message_queue;
 
         message_packet _packet;
+        message_packet _packet_to_write;
     };
 
     inline connection::connection(asio::io_context& io_context, asio::ip::tcp::socket socket,
@@ -52,6 +58,45 @@ namespace networking
 
     inline connection::~connection()
     {
+        if (_socket.is_open())
+            _socket.close();
+    }
+
+    inline void connection::disconnect()
+    {
+        _socket.close();
+    }
+
+    inline void connection::send_message(const message_packet& message_to_send)
+    {
+        _packet_to_write = message_to_send;
+        asio::async_write(_socket, asio::buffer(&_packet_to_write.header_, sizeof(api::message_header)),
+            [&](std::error_code ec, std::size_t length_written)
+            {
+                if (!ec)
+                {
+                    if (length_written == sizeof(api::message_header))
+                    {
+                        spdlog::debug("[connection] sent header!");
+                        write_body();
+                    }
+                }
+            });
+    }
+
+    inline void connection::write_body()
+    {
+        asio::async_write(_socket, asio::buffer(_packet_to_write.body_.data(), _packet_to_write.header_.message_length),
+            [&](std::error_code ec, std::size_t length_written)
+            {
+                if (!ec)
+                {
+                    if (length_written == _packet_to_write.header_.message_length)
+                    {
+                        spdlog::debug("[connection] sent body!");
+                    }
+                }
+            });
     }
 
     inline void connection::read_header()
@@ -72,12 +117,12 @@ namespace networking
                 }
                 else if (ec.value() == 2 || ec.value() == 10054) //Connection was closed. Client disconnected
                 {
-                    _socket.close();
                     return;
                 }
                 else
                 {
                     spdlog::error("[connection] Error: {}, Error value: {}", ec.message(), ec.value());
+                    return;
                 }
 
                 read_header();

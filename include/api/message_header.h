@@ -3,18 +3,28 @@
 #include <array>
 #include <iostream>
 
+#pragma pack(1)
 namespace api
 {
     struct message_header
     {
-        std::array<char, 25> topic;
-        std::array<char, 25> service_name;
+        std::array<char, 25> topic{};
+        std::array<char, 25> service_name{};
         std::uint64_t message_length = 0;
 
-        friend std::ostream& operator<<(std::ostream& os, message_header mh)
+        std::string get_topic_string()
         {
-            os << "This is the message Header stuff";
-            return os;
+            auto topic_str = std::string(topic.begin(), topic.end());
+            topic_str.erase(std::find(topic_str.begin(), topic_str.end(), '\0'), topic_str.end());
+            return topic_str;
+        }
+
+        std::string get_service_name_string()
+        {
+            auto service_name_str = std::string(service_name.begin(), service_name.end());
+            service_name_str.erase(std::find(service_name_str.begin(), service_name_str.end(), '\0'), service_name_str.end());
+            return service_name_str;
         }
     };
 }
+#pragma pack()

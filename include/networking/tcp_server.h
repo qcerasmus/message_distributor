@@ -1,6 +1,9 @@
 #pragma once
 
+#include <string>
 #include <sstream>
+#include <map>
+#include <vector>
 
 #include <asio.hpp>
 #include <asio/buffer.hpp>
@@ -8,13 +11,14 @@
 #include <concurrentqueue.h>
 
 #include "connection.h"
+#include "api/subscribe_message.h"
 
 namespace networking
 {
     class tcp_server
     {
     public:
-        explicit tcp_server(const std::string& ip_address, const short port);
+        explicit tcp_server(const std::string& ip_address, const unsigned short port);
         ~tcp_server();
 
         bool start();
@@ -26,18 +30,18 @@ namespace networking
 
     private:
         std::string _ip_address;
-        short _port;
+        unsigned short _port;
 
         asio::io_context _io_context;
         asio::ip::tcp::endpoint _endpoint;
         std::unique_ptr<asio::ip::tcp::acceptor> _acceptor;
         std::thread _context_thread;
-        std::vector<std::shared_ptr<connection>> _connections;
+        std::map<std::unique_ptr<connection>, std::vector<std::string>> _connections;
 
         std::shared_ptr<moodycamel::ConcurrentQueue<networking::message_packet>> _message_queue;
     };
 
-    inline tcp_server::tcp_server(const std::string& ip_address, const short port)
+    inline tcp_server::tcp_server(const std::string& ip_address, const unsigned short port)
         : _ip_address(ip_address),
         _port(port)
     {
@@ -55,6 +59,10 @@ namespace networking
 
     inline tcp_server::~tcp_server()
     {
+        for(const auto& [connection, topics]: _connections)
+        {
+            connection->disconnect();
+        }
         _connections.clear();
         stop();
     }
@@ -98,14 +106,13 @@ namespace networking
                     std::stringstream str;
                     str << socket.remote_endpoint();
                     spdlog::debug("[tcp_server] a new connection: {}", str.str());
-                    auto new_connection = std::make_shared<connection>(_io_context, std::move(socket),
-                        _message_queue);
+                    auto new_connection = std::make_unique<connection>(_io_context, std::move(socket), _message_queue);
                     new_connection->message_received = [&]()
                     {
                         message_to_forward();
                     };
 
-                    _connections.emplace_back(new_connection);
+                    _connections[(std::move(new_connection))];
                     wait_for_client();
                 }
                 else
@@ -118,12 +125,40 @@ namespace networking
     inline void tcp_server::message_to_forward()
     {
         message_packet mp{};
-        _message_queue->try_dequeue(mp);
-        for(const auto& connection : _connections)
+        if (_message_queue->try_dequeue(mp))
         {
-            if (connection->my_endpoint != mp.endpoint_)
+            auto topic_string = mp.header_.get_topic_string();
+            if (topic_string == "sub")
             {
-                spdlog::debug("sending packet to endpoint: {}", connection->my_endpoint);
+                const auto* subsciption_message = reinterpret_cast<api::subscribe_message*>(&mp.body_[0]);
+
+                for (auto& [connection, topics] : _connections)
+                {
+                    if (connection->my_endpoint == mp.endpoint_)
+                    {
+                        spdlog::debug("[tcp_server] client endpoint: {} subscribed to topic: {}", connection->my_endpoint, subsciption_message->get_topic_to_subscribe_to_string());
+                        topics.push_back(subsciption_message->get_topic_to_subscribe_to_string());
+
+                        return;
+                    }
+                }
+
+                return;
+            }
+            for (const auto& [connection, topics] : _connections)
+            {
+                if (connection->my_endpoint != mp.endpoint_)
+                {
+                    for (const auto& topic : topics)
+                    {
+                        if (topic == topic_string)
+                        {
+                            spdlog::debug("sending packet to endpoint: {}", connection->my_endpoint);
+                            connection->send_message(mp);
+                            break;
+                        }
+                    }
+                }
             }
         }
     }
