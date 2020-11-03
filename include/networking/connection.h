@@ -35,13 +35,16 @@ namespace networking
         asio::ip::tcp::socket _socket;
 
     private:
+        void send_message();
         void write_body();
         void read_header();
-        void read_body(std::uint64_t length_expected);
+        void read_body();
         std::shared_ptr<moodycamel::ConcurrentQueue<message_packet>> _message_queue;
 
         message_packet _packet;
-        message_packet _packet_to_write;
+        message_packet _current_packet_to_write;
+        moodycamel::ConcurrentQueue<message_packet> _packets_to_write;
+        bool _done_writing = true;
     };
 
     inline connection::connection(asio::io_context& io_context, asio::ip::tcp::socket socket,
@@ -54,6 +57,7 @@ namespace networking
         str << _socket.remote_endpoint();
         my_endpoint = str.str();
         _socket.set_option(asio::ip::tcp::no_delay(true));
+        
         read_header();
     }
 
@@ -70,34 +74,63 @@ namespace networking
 
     inline void connection::send_message(const message_packet& message_to_send)
     {
-        _packet_to_write = message_to_send;
-        asio::async_write(_socket, asio::buffer(&_packet_to_write.header_, sizeof(api::message_header)),
-            [&](std::error_code ec, std::size_t length_written)
-            {
-                if (!ec)
-                {
-                    if (length_written == sizeof(api::message_header))
-                    {
-                        spdlog::debug("[connection] sent header!");
-                        write_body();
-                    }
-                }
-            });
+        _packets_to_write.enqueue(message_to_send);
+        send_message();
     }
+
+    inline void connection::send_message()
+    {
+        //we're currently writing a packet, just chill for a bit
+        while (!_done_writing)
+        {
+            std::this_thread::sleep_for(std::chrono::nanoseconds(100));
+        }
+
+        if (_packets_to_write.try_dequeue(_current_packet_to_write))
+        {
+            _done_writing = false;
+            asio::async_write(_socket, asio::buffer(&_current_packet_to_write.header_, sizeof(api::message_header)),
+                [&](std::error_code ec, std::size_t length_written)
+                {
+                    if (!ec)
+                    {
+                        if (length_written == sizeof(api::message_header))
+                        {
+                            spdlog::trace("[connection] sent header!");
+                            write_body();
+                        }
+                        else
+                        {
+                            spdlog::trace("[connection] we sent less bytes than expected for the header");
+                        }
+                    }
+                });
+        }
+    }
+
 
     inline void connection::write_body()
     {
-        asio::async_write(_socket, asio::buffer(_packet_to_write.body_.data(), _packet_to_write.header_.message_length),
-            [&](std::error_code ec, std::size_t length_written)
+        asio::post(_io_context, [&]()
             {
-                if (!ec)
-                {
-                    if (length_written == _packet_to_write.header_.message_length)
+                asio::async_write(_socket, asio::dynamic_buffer(_current_packet_to_write.body_, _current_packet_to_write.header_.body_length),
+                    [&](std::error_code ec, std::size_t length_written)
                     {
-                        spdlog::debug("[connection] sent body!");
-                    }
-                }
-            });
+                        if (!ec)
+                        {
+                            if (length_written == _current_packet_to_write.header_.body_length)
+                            {
+                                spdlog::trace("[connection] sent body!");
+                                _done_writing = true;
+                            }
+                            else
+                            {
+                                spdlog::trace("[connection] we sent less bytes than expected for the body");
+                            }
+                        }
+                    });
+            }
+        );
     }
 
     inline void connection::read_header()
@@ -113,9 +146,13 @@ namespace networking
                             service_name = _packet.header_.get_service_name_string();
 
                         _packet.endpoint_ = my_endpoint;
-                        spdlog::debug("[connection] The length of the body is: {}", _packet.header_.message_length);
+                        spdlog::trace("[connection] The length of the body is: {}", _packet.header_.body_length);
 
-                        read_body(_packet.header_.message_length);
+                        read_body();
+                    }
+                    else
+                    {
+                        spdlog::error("[connection] we received less bytes in the header than expected...");
                     }
                 }
                 else if (ec.value() == 2 || ec.value() == 10054) //Connection was closed. Client disconnected
@@ -132,19 +169,24 @@ namespace networking
             });
     }
 
-    inline void connection::read_body(std::uint64_t length_expected)
+    inline void connection::read_body()
     {
-        asio::async_read(_socket, asio::dynamic_buffer(_packet.body_, _packet.header_.message_length),
+        asio::async_read(_socket, asio::dynamic_buffer(_packet.body_, _packet.header_.body_length),
             [&](std::error_code ec, std::size_t length_read)
             {
                 if (!ec)
                 {
-                    if (length_read == _packet.header_.message_length)
+                    if (length_read == _packet.header_.body_length)
                     {
-                        spdlog::debug("[connection] We have received an entire packet");
+                        spdlog::trace("[connection] We have received an entire packet with topic: {}", _packet.header_.get_topic_string());
                         _message_queue->enqueue(_packet);
+                        _packet.body_.clear();
                         if (message_received)
                             message_received();
+                    }
+                    else
+                    {
+                        spdlog::error("[connection] we received: {} bytes but expected: {} bytes", length_read, _packet.header_.body_length);
                     }
                 }
                 else if (ec.value() == 2) //Connection was closed. Client disconnected

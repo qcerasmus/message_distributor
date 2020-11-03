@@ -4,11 +4,13 @@
 #include <sstream>
 #include <map>
 #include <vector>
+#include <fstream>
 
 #include <asio.hpp>
 #include <asio/buffer.hpp>
 #include <asio/ts/internet.hpp>
 #include <concurrentqueue.h>
+#include <cereal/archives/binary.hpp>
 
 #include "connection.h"
 #include "api/subscribe_message.h"
@@ -125,8 +127,11 @@ namespace networking
     inline void tcp_server::message_to_forward()
     {
         message_packet mp{};
-        if (_message_queue->try_dequeue(mp))
+        while (_message_queue->try_dequeue(mp))
         {
+            //Forward messages to other distributors...
+
+
             auto topic_string = mp.header_.get_topic_string();
             if (topic_string == "sub")
             {
@@ -145,6 +150,14 @@ namespace networking
 
                 return;
             }
+
+            {
+                std::ofstream os("messages.cereal", std::ios::binary);
+                cereal::BinaryOutputArchive archive(os);
+
+                archive(mp);
+            }
+
             for (const auto& [connection, topics] : _connections)
             {
                 if (connection->my_endpoint != mp.endpoint_ || connection->service_name == mp.header_.get_service_name_string())
@@ -153,7 +166,7 @@ namespace networking
                     {
                         if (topic == topic_string)
                         {
-                            spdlog::debug("sending packet to endpoint: {}", connection->my_endpoint);
+                            spdlog::info("[tcp_server] sending packet to endpoint: {}", connection->my_endpoint);
                             connection->send_message(mp);
                             break;
                         }

@@ -33,15 +33,15 @@ int main()
     std::copy(topic_str.begin(), topic_str.end(), header.topic.begin());
     std::copy(service_str.begin(), service_str.end(), header.service_name.begin());
 
-    api::example_body example_body{};
-    example_body.i = 69;
-    example_body.j = 420;
+    api::example_body example_body{ 69, 420 };
 
     std::vector<unsigned char> body_bytes(sizeof(api::example_body));
     memcpy(&body_bytes[0], &example_body, sizeof(api::example_body));
 
-    for (int i = 0; i < 1; i++)
+    for (auto i = 0; i < 10; i++)
+    {
         client.send_message(header, body_bytes);
+    }
 
     std::thread t([&]()
         {

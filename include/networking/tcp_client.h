@@ -62,7 +62,7 @@ namespace networking
         networking::message_packet packet;
         packet.endpoint_ = _connection->my_endpoint;
         packet.header_ = header;
-        packet.header_.message_length = body.size();
+        packet.header_.body_length = body.size();
         packet.body_ = body;
 
         _connection->send_message(packet);
