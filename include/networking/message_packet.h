@@ -1,7 +1,7 @@
 #pragma once
 
-#include <string>
 #include <api/message_header.h>
+#include <string>
 
 #include <cereal/types/array.hpp>
 #include <cereal/types/string.hpp>
@@ -9,16 +9,16 @@
 
 namespace networking
 {
-    struct message_packet
-    {
-        std::string endpoint_;
-        api::message_header header_;
-        std::vector<unsigned char> body_;
+struct message_packet
+{
+    std::string endpoint_;
+    api::message_header header_;
+    std::vector<unsigned char> body_;
 
-        template <class Archive>
-        void serialize(Archive& ar)
-        {
-            ar(endpoint_, header_, body_);
-        }
-    };
-}
+    template <class Archive>
+    void serialize(Archive &ar)
+    {
+        ar(endpoint_, header_, body_);
+    }
+};
+} // namespace networking

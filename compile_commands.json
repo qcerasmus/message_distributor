@@ -1,0 +1,17 @@
+[
+{
+  "directory": "/mnt/ProgrammingDrive/source/message_distributor/build",
+  "command": "/usr/bin/c++ -DASIO_STANDALONE -I/mnt/ProgrammingDrive/source/message_distributor/include -I/mnt/ProgrammingDrive/source/message_distributor/third_party/asio/asio/include -I/mnt/ProgrammingDrive/source/message_distributor/third_party/cereal/include -I/mnt/ProgrammingDrive/source/message_distributor/third_party/spdlog/include -I/mnt/ProgrammingDrive/source/message_distributor/third_party/reader_writer_queue -std=gnu++17 -o CMakeFiles/message_distributor.dir/src/console.cpp.o -c /mnt/ProgrammingDrive/source/message_distributor/src/console.cpp",
+  "file": "/mnt/ProgrammingDrive/source/message_distributor/src/console.cpp"
+},
+{
+  "directory": "/mnt/ProgrammingDrive/source/message_distributor/build/client/writing_client",
+  "command": "/usr/bin/c++ -DASIO_STANDALONE -I/mnt/ProgrammingDrive/source/message_distributor/include -I/mnt/ProgrammingDrive/source/message_distributor/third_party/asio/asio/include -I/mnt/ProgrammingDrive/source/message_distributor/third_party/cereal/include -I/mnt/ProgrammingDrive/source/message_distributor/third_party/spdlog/include -I/mnt/ProgrammingDrive/source/message_distributor/third_party/reader_writer_queue -std=gnu++17 -o CMakeFiles/writing_client.dir/client.cpp.o -c /mnt/ProgrammingDrive/source/message_distributor/client/writing_client/client.cpp",
+  "file": "/mnt/ProgrammingDrive/source/message_distributor/client/writing_client/client.cpp"
+},
+{
+  "directory": "/mnt/ProgrammingDrive/source/message_distributor/build/client/reading_client",
+  "command": "/usr/bin/c++ -DASIO_STANDALONE -I/mnt/ProgrammingDrive/source/message_distributor/include -I/mnt/ProgrammingDrive/source/message_distributor/third_party/asio/asio/include -I/mnt/ProgrammingDrive/source/message_distributor/third_party/cereal/include -I/mnt/ProgrammingDrive/source/message_distributor/third_party/spdlog/include -I/mnt/ProgrammingDrive/source/message_distributor/third_party/reader_writer_queue -std=gnu++17 -o CMakeFiles/reading_client.dir/client.cpp.o -c /mnt/ProgrammingDrive/source/message_distributor/client/reading_client/client.cpp",
+  "file": "/mnt/ProgrammingDrive/source/message_distributor/client/reading_client/client.cpp"
+}
+]

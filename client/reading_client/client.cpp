@@ -2,10 +2,9 @@
 
 #include <spdlog/spdlog.h>
 
-
+#include "api/example_body.h"
 #include "api/message_header.h"
 #include "api/subscribe_message.h"
-#include "api/example_body.h"
 
 #include "networking/tcp_client.h"
 
@@ -26,7 +25,7 @@ int main()
             networking::message_packet mp{};
             if (client.message_queue->try_dequeue(mp))
             {
-                auto* const example_body = reinterpret_cast<api::example_body*>(&mp.body_[0]);
+                auto *const example_body = reinterpret_cast<api::example_body *>(&mp.body_[0]);
                 spdlog::debug("[reading_client] example body received: i = {} j = {}", example_body->i, example_body->j);
             }
         }
@@ -48,8 +47,6 @@ int main()
     client.send_message(header, body_bytes);
 
     std::thread t([&]()
-        {
-            keep_running();
-        });
+        { keep_running(); });
     t.join();
 }

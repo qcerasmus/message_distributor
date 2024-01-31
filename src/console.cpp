@@ -1,6 +1,5 @@
 #include <iostream>
-#include <fstream>
-#include <chrono>
+#include <thread>
 
 #include <spdlog/spdlog.h>
 
@@ -17,12 +16,8 @@ int main()
     networking::tcp_server server("127.0.0.1", 9876);
     if (server.start())
     {
-        
     }
 
-    std::thread t([&]()
-        {
-            wait_for_input();
-        });
+    std::thread t([&]() { wait_for_input(); });
     t.join();
 }

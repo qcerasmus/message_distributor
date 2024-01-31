@@ -12,7 +12,7 @@ Dependencies
 * concurrentqueue: https://github.com/cameron314/concurrentqueue.git
 * spdlog: https://github.com/gabime/spdlog.git
 
-All of the dependencies will be downloaded on the first build of the project.
+All the dependencies will be downloaded on the first build of the project.
 They will be saved to the 'third_party' folder each in their own folder.
 
 
